@@ -1,5 +1,7 @@
 import {
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,17 +11,24 @@ import {
 import TickerCard from '../../components/TickerCard/TickerCard';
 import {useEffect, useState} from 'react';
 import {ITicker} from '../../interfaces/ITicker';
-import {getTickerIconAPI, getTickersAPI} from '../../api/TickerService';
+import {
+  getNextTickersAPI,
+  getTickerIconAPI,
+  getTickersAPI,
+} from '../../api/TickerService';
 
 const LandingScreen = (): React.JSX.Element => {
   const [tickers, setTickers] = useState<ITicker[]>([]);
   const [loading, setLoading] = useState(false);
+  const [nextLoading, setNextLoading] = useState(false);
 
   const max_requests = 10;
   const time_window = 60000;
 
   const [currentNumberOfRequests, setCurrentNumberOfRequests] = useState(0);
   const [windowStart, setWindowStart] = useState(Date.now());
+
+  const [nextURL, setNextURL] = useState('');
 
   const checkRequestWindow = () => {
     const now = Date.now();
@@ -48,11 +57,15 @@ const LandingScreen = (): React.JSX.Element => {
 
       if (currentNumberOfRequests < max_requests) {
         const tickersResult = await getTickersAPI(search);
-        const tickersResultWithIcons = tickersResult
-          ? await getTickersIcons(tickersResult)
-          : [];
-
-        setTickers(tickersResultWithIcons);
+        //const tickersResultWithIcons = tickersResult
+        // ? await getTickersIcons(tickersResult)
+        // : [];
+        tickersResult
+          ? tickersResult.next
+            ? setNextURL(tickersResult.next)
+            : null
+          : null;
+        tickersResult ? setTickers(tickersResult.results) : null;
         setCurrentNumberOfRequests(currentNumberOfRequests + 1);
       } else {
         console.warn('Rate limit reached. Please try again in 1 minute');
@@ -64,8 +77,41 @@ const LandingScreen = (): React.JSX.Element => {
     }
   };
 
+  const getNextTickers = async () => {
+    checkRequestWindow();
+
+    if (currentNumberOfRequests < max_requests) {
+      const nextTickersResult = await getNextTickersAPI(nextURL);
+
+      nextTickersResult
+        ? nextTickersResult.next
+          ? setNextURL(nextTickersResult.next)
+          : null
+        : null;
+
+      const newTickers = [...tickers, ...nextTickersResult?.results];
+
+      nextTickersResult ? setTickers(newTickers) : null;
+      setCurrentNumberOfRequests(currentNumberOfRequests + 1);
+    } else {
+      console.warn('Rate limit reached. Please try again in 1 minute');
+    }
+  };
+
   const onSearch = async (input: string) => {
     await getTickers(input);
+  };
+
+  const handleScroll = ({
+    nativeEvent,
+  }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
+    const isEnding =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 1;
+
+    if (isEnding && !loading) {
+      getNextTickers();
+    }
   };
 
   useEffect(() => {
@@ -81,7 +127,7 @@ const LandingScreen = (): React.JSX.Element => {
         />
       </View>
 
-      <ScrollView style={{margin: 20}}>
+      <ScrollView onScroll={handleScroll} style={{margin: 20}}>
         <View style={styles.searchContainer}>
           <TextInput
             placeholder="Search for stocks"
@@ -98,8 +144,8 @@ const LandingScreen = (): React.JSX.Element => {
         ) : (
           <View style={styles.cardsContainer}>
             {tickers ? (
-              tickers.map(ticker => (
-                <TickerCard key={ticker.ticker} ticker={ticker} />
+              tickers.map((ticker, index) => (
+                <TickerCard key={index} ticker={ticker} />
               ))
             ) : (
               <Text style={styles.notFoundText}>No tickers found</Text>
