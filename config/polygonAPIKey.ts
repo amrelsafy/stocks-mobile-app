@@ -1,1 +1,1 @@
-export const apiKey = 'CJmSkMjPVdVbvctPa3kviO7tCfzNZcKv'
+export const apiKey = process.env.POLYGON_API_KEY;
