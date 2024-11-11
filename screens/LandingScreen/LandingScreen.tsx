@@ -122,7 +122,7 @@ const LandingScreen = (): React.JSX.Element => {
     <View style={styles.landingScreenBackground}>
       <View style={styles.header}>
         <Image
-          source={require('../../assets/NasdaqLogo.png')}
+          source={require('../../assets/Nasdaq_Logo.png')}
           style={styles.headerImage}
         />
       </View>
