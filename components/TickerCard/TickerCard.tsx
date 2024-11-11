@@ -1,36 +1,13 @@
 import {Image, StyleSheet, Text, View} from 'react-native';
 import {ITicker} from '../../interfaces/ITicker';
-import {useEffect, useState} from 'react';
 
 const TickerCard = ({ticker}: {ticker: ITicker}) => {
-  const [iconURI, setIconURI] = useState<string>('');
-
-  const getIconURI = async () => {
-    try {
-      const res = await fetch(
-        `https://api.polygon.io/v3/reference/tickers/${ticker.ticker}?apiKey=CJmSkMjPVdVbvctPa3kviO7tCfzNZcKv`,
-      );
-      const data = await res.json();
-      if (data.results.branding)
-        setIconURI(
-          data.results.branding.icon_url +
-            `?apiKey=CJmSkMjPVdVbvctPa3kviO7tCfzNZcKv`,
-        );
-    } catch (error) {
-      console.error(`Error fetching ticker ${ticker.ticker} details`);
-    }
-  };
-
-  useEffect(() => {
-    getIconURI();
-  }, []);
-
   return (
     <View style={styles.cardContainer}>
-      {iconURI ? (
+      {ticker.icon_url ? (
         <Image
           source={{
-            uri: iconURI,
+            uri: ticker.icon_url,
           }}
           style={styles.cardIcon}
         />

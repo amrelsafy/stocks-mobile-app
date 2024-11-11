@@ -9,23 +9,60 @@ import {
 import TickerCard from '../../components/TickerCard/TickerCard';
 import {useEffect, useState} from 'react';
 import {ITicker} from '../../interfaces/ITicker';
-import {throttle} from 'lodash';
+import {getTickerIconAPI, getTickersAPI} from '../../api/TickerService';
 
 const LandingScreen = (): React.JSX.Element => {
   const [tickers, setTickers] = useState<ITicker[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const getTickers = throttle(async (ticker: string) => {
-    try {
-      const baseURL =
-        'https://api.polygon.io/v3/reference/tickers?active=true&limit=3&apiKey=CJmSkMjPVdVbvctPa3kviO7tCfzNZcKv';
-      const fetchURL = ticker ? baseURL + `&ticker=${ticker}` : baseURL;
-      const res = await fetch(fetchURL);
-      const data = await res.json();
-      setTickers(data.results);
-    } catch (error) {
-      console.log('Error while fetching tickers');
+  const max_requests = 10;
+  const time_window = 60000;
+
+  const [currentNumberOfRequests, setCurrentNumberOfRequests] = useState(0);
+  const [windowStart, setWindowStart] = useState(Date.now());
+
+  const checkRequestWindow = () => {
+    const now = Date.now();
+    if (now - windowStart > time_window) {
+      setWindowStart(now);
+      setCurrentNumberOfRequests(0);
     }
-  }, 5000);
+  };
+
+  const getTickersIcons = async (tickers: ITicker[]): Promise<ITicker[]> => {
+    const tickersWithIcons = await Promise.all(
+      tickers.map(async ticker => {
+        const tickerIconURI = await getTickerIconAPI(ticker.ticker);
+        setCurrentNumberOfRequests(currentNumberOfRequests + 1);
+        return {...ticker, icon_url: tickerIconURI};
+      }),
+    );
+
+    return tickersWithIcons;
+  };
+
+  const getTickers = async (search: string) => {
+    try {
+      setLoading(true);
+      checkRequestWindow();
+
+      if (currentNumberOfRequests < max_requests) {
+        const tickersResult = await getTickersAPI(search);
+        const tickersResultWithIcons = tickersResult
+          ? await getTickersIcons(tickersResult)
+          : [];
+
+        setTickers(tickersResultWithIcons);
+        setCurrentNumberOfRequests(currentNumberOfRequests + 1);
+      } else {
+        console.warn('Rate limit reached. Please try again in 1 minute');
+      }
+    } catch (error) {
+      console.error(`Error while fetching tickers: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onSearch = async (input: string) => {
     await getTickers(input);
@@ -54,15 +91,21 @@ const LandingScreen = (): React.JSX.Element => {
           />
         </View>
 
-        <View style={styles.cardsContainer}>
-          {tickers ? (
-            tickers.map(ticker => (
-              <TickerCard key={ticker.ticker} ticker={ticker} />
-            ))
-          ) : (
-            <Text style={styles.notFoundText}>No tickers found</Text>
-          )}
-        </View>
+        {loading ? (
+          <Text style={styles.notFoundText}>
+            Tickers are currently loading...
+          </Text>
+        ) : (
+          <View style={styles.cardsContainer}>
+            {tickers ? (
+              tickers.map(ticker => (
+                <TickerCard key={ticker.ticker} ticker={ticker} />
+              ))
+            ) : (
+              <Text style={styles.notFoundText}>No tickers found</Text>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );

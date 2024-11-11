@@ -10,5 +10,6 @@ export interface ITicker {
   primary_exchange: string,
   share_class_figi: string,
   ticker: string,
-  type: string
+  type: string,
+  icon_url ?: string
 }
