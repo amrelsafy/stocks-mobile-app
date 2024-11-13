@@ -16,6 +16,7 @@ import {
   getTickerIconAPI,
   getTickersAPI,
 } from '../../api/TickerService';
+import BootSplash from 'react-native-bootsplash';
 
 const LandingScreen = (): React.JSX.Element => {
   const [tickers, setTickers] = useState<ITicker[]>([]);
@@ -116,6 +117,7 @@ const LandingScreen = (): React.JSX.Element => {
 
   useEffect(() => {
     getTickers('');
+    BootSplash.hide({fade: true});
   }, []);
 
   return (
